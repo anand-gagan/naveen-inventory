@@ -1,0 +1,20 @@
+{
+  "name": "com.naveen.inventory",
+  "version": "1.0.0",
+  "description": "Inventory Management system for Naveen's company",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Gagan_Anand",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "body-parser": "^1.20.3",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "mongoose": "^8.9.2",
+    "node": "^23.5.0",
+    "pdfkit": "^0.16.0"
+  }
+}

@@ -49,9 +49,44 @@ const DataSchema = new mongoose.Schema({
   rate: Number,
   createdBy: String,
 });
+// Schema for Client
+const ClientSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+});
 
+const Client = mongoose.model('Client', ClientSchema);
 const User = mongoose.model('User', UserSchema);
 const Data = mongoose.model('Data', DataSchema);
+
+
+// Route to serve Admin page
+app.get('/admin', isAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+// Route to add a new client
+app.post('/add-client', isAdmin, async (req, res) => {
+  try {
+    const { name } = req.body;
+    const newClient = new Client({ name });
+    await newClient.save();
+    res.status(200).json({ success: true, message: 'Client added successfully' });
+  } catch (error) {
+    console.error('Error adding client:', error);
+    res.status(500).json({ success: false, message: 'Failed to add client' });
+  }
+});
+
+// Route to fetch clients
+app.get('/clients', isLoggedIn, async (req, res) => {
+  try {
+    const clients = await Client.find({}, 'name');
+    res.status(200).json({ success: true, clients });
+  } catch (error) {
+    console.error('Error fetching clients:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch clients' });
+  }
+});
 
 // Middleware to check if user is logged in
 function isLoggedIn(req, res, next) {

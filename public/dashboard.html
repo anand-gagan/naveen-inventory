@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard</title>
-  <!-- Bootstrap CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
   <style>
     body {
       padding: 2rem;
@@ -21,30 +21,35 @@
     }
     .table-container {
       margin-top: 2rem;
+      overflow-x: auto;
     }
-    table {
-      width: 100%;
-      background: #ffffff;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    .top-right {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
     }
-    th, td {
-      text-align: center;
-      vertical-align: middle;
-    }
-    button {
-      margin-top: 1rem;
+
+    @media (max-width: 768px) {
+      .top-right {
+        position: static;
+        display: block;
+        margin: 10px auto;
+        text-align: center;
+      }
     }
   </style>
 </head>
-<body onload="fetchData()">
+<body onload="initializeDashboard()">
+  <a href="/admin" class="btn btn-secondary top-right">Go to Admin</a>
   <h1>Dashboard</h1>
 
   <div class="form-container">
     <form class="row g-3" onsubmit="addData(event)">
       <div class="col-md-4">
-        <input type="text" class="form-control" name="client" placeholder="Client" required />
+        <select class="form-select" name="client" id="clientSelect" required>
+          <option value="" disabled selected>Select Client</option>
+        </select>
       </div>
       <div class="col-md-4">
         <input type="text" class="form-control" name="serialNo" placeholder="Serial No" required />
@@ -68,39 +73,73 @@
   </div>
 
   <div class="table-container">
-    <table class="table table-striped" id="data-table"></table>
+    <table class="table table-striped" id="data-table">
+      <thead class="table-dark">
+        <tr>
+          <th>Select</th>
+          <th>Client</th>
+          <th>Serial No</th>
+          <th>Quantity</th>
+          <th>Date</th>
+          <th>Particular</th>
+          <th>Rate</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
   </div>
 
   <div class="text-center">
     <button class="btn btn-success" onclick="generatePDF()">Generate PDF for Selected Items</button>
   </div>
 
-  <!-- Bootstrap JS -->
+  <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
   <script>
     let selectedItems = [];
+
+    async function initializeDashboard() {
+      await fetchClients();
+      fetchData();
+    }
+
+    async function fetchClients() {
+      const response = await fetch('/clients');
+      const result = await response.json();
+      if (result.success) {
+        const clientSelect = document.getElementById('clientSelect');
+        result.clients.forEach(client => {
+          const option = document.createElement('option');
+          option.value = client.name;
+          option.textContent = client.name;
+          clientSelect.appendChild(option);
+        });
+      } else {
+        alert('Failed to fetch clients');
+      }
+    }
 
     async function fetchData() {
       const response = await fetch('/dashboard-data');
       const result = await response.json();
       if (result.success) {
         const data = result.data;
-        const table = document.getElementById('data-table');
-        table.innerHTML = '<thead class="table-dark"><tr><th>Select</th><th>Client</th><th>Serial No</th><th>Quantity</th><th>Date</th><th>Particular</th><th>Rate</th><th>Actions</th></tr></thead><tbody></tbody>';
-        const tbody = table.querySelector('tbody');
-        data.forEach((item) => {
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td><input type="checkbox" onchange="toggleSelection('${item._id}')"></td>
-            <td>${item.client}</td>
-            <td>${item.serialNo}</td>
-            <td>${item.quantity}</td>
-            <td>${new Date(item.date).toLocaleDateString()}</td>
-            <td>${item.particular}</td>
-            <td>${item.rate}</td>
-            <td><button class="btn btn-danger btn-sm" onclick="deleteData('${item._id}')">Delete</button></td>
-          `;
-          tbody.appendChild(row);
+        const table = $('#data-table').DataTable();
+        table.clear();
+        data.forEach(item => {
+          table.row.add([
+            `<input type="checkbox" onchange="toggleSelection('${item._id}')">`,
+            item.client,
+            item.serialNo,
+            item.quantity,
+            new Date(item.date).toLocaleDateString(),
+            item.particular,
+            item.rate,
+            `<button class="btn btn-danger btn-sm" onclick="deleteData('${item._id}')">Delete</button>`
+          ]).draw();
         });
       } else {
         alert('Failed to fetch data');
@@ -109,7 +148,7 @@
 
     function toggleSelection(itemId) {
       if (selectedItems.includes(itemId)) {
-        selectedItems = selectedItems.filter((id) => id !== itemId);
+        selectedItems = selectedItems.filter(id => id !== itemId);
       } else {
         selectedItems.push(itemId);
       }

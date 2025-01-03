@@ -1,42 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Panel</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>
-    body {
-      padding: 2rem;
-      background-color: #f8f9fa;
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 2rem;
-      color: #343a40;
-    }
-    .form-container {
-      margin: 0 auto;
-      max-width: 400px;
-    }
-    .top-right {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        z-index: 1000;
-    }
-    @media (max-width: 768px) {
-      .top-right {
-        position: static;
-        display: block;
-        margin: 10px auto;
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+        padding: 2rem;
+        background-color: #f8f9fa;
+        }
+        h1 {
         text-align: center;
-      }
-    }
-  </style>
-</head>
+        margin-bottom: 2rem;
+        color: #343a40;
+        }
+        .form-container {
+        margin: 0 auto;
+        max-width: 400px;
+        }
+        .top-right {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+        }
+        .top-right + .top-right {
+            top: 60px; /* Adjust for spacing between buttons */
+        }
+        @media (max-width: 768px) {
+        .top-right {
+            position: static;
+            display: block;
+            margin: 10px auto;
+            text-align: center;
+        }
+        .top-right + .top-right {
+            margin-top: 10px; /* Add spacing for stacked buttons */
+        }
+        }
+    </style>
+    </head>
 <body>
-  <a href="/dashboard" class="btn btn-secondary top-right">Back to Dashboard</a>
+  <a href="/home" class="btn btn-secondary top-right">Home</a>
+  <a href="/register" class="btn btn-secondary top-right">Register new User</a>
   <h1>Admin Panel</h1>
 
   <div class="form-container">

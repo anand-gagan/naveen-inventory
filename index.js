@@ -39,6 +39,8 @@ const UserSchema = new mongoose.Schema({
   username: String,
   password: String,
   role: String, // 'admin' or 'user'
+  billingCode: String, // New field
+  lastChallanNumber: { type: Number, default: 10000 },
 });
 const DataSchema = new mongoose.Schema({
   client: String,
@@ -73,7 +75,7 @@ const DeliveryChallanSchema = new mongoose.Schema({
 });
 
 const BillingItemSchema = new mongoose.Schema({
-  challanId: { type: mongoose.Schema.Types.ObjectId, ref: 'DeliveryChallan', required: true },
+  challanId: { type: String, ref: 'DeliveryChallan', required: true },
   particular: { type: String, required: true },
   quantity: { type: Number, required: true },
   price: { type: Number, required: true },
@@ -152,7 +154,7 @@ app.post('/delivery-challan', async (req, res) => {
     }
 
     const challan = new DeliveryChallan({
-      challanId: new mongoose.Types.ObjectId().toString(),
+      challanId: await generateChallanId(req.session.user.username),
       date,
       clientId,
       clientName: client.name, // Store client name
@@ -284,8 +286,8 @@ function isAdmin(req, res, next) {
 }
 
 // Routes
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/public/index.html');
+app.get('/', isLoggedIn, (req, res) => {
+  res.sendFile(__dirname + '/public/home.html');
 });
 
 app.get('/login', (req, res) => {
@@ -296,8 +298,8 @@ app.post('/login', async (req, res) => {
   const { username, password } = req.body;
   const user = await User.findOne({ username });
   if (user && (await bcrypt.compare(password, user.password))) {
-    req.session.user = { username: user.username, role: user.role };
-    res.redirect('/dashboard');
+    req.session.user = { username: user.username, role: user.role, billingCode: user.billingCode };
+    res.redirect('/home');
   } else {
     res.status(401).send('Invalid credentials');
   }
@@ -307,15 +309,19 @@ app.get('/register', (req, res) => {
   res.sendFile(__dirname + '/public/register.html');
 });
 
-app.post('/register', async (req, res) => {
-  const { username, password, role } = req.body;
+app.post('/register', isAdmin, async (req, res) => {
+  const { username, password, role, billingCode } = req.body; // Extract billingCode
   const hashedPassword = await bcrypt.hash(password, 10);
-  const newUser = new User({ username, password: hashedPassword, role });
+  const newUser = new User({ username, password: hashedPassword, role, billingCode });
   await newUser.save();
-  res.redirect('/login');
+  res.redirect('/home');
 });
 
 // Serve dashboard.html
+app.get('/home', isLoggedIn, async (req, res) => {
+  res.sendFile(__dirname + '/public/home.html');
+});
+
 app.get('/dashboard', isLoggedIn, async (req, res) => {
   res.sendFile(__dirname + '/public/dashboard.html');
 });
@@ -339,7 +345,7 @@ app.get('/dashboard-data', isLoggedIn, async (req, res) => {
   }
 });
 
-app.post('/data', isLoggedIn, async (req, res) => {
+app.post('/data--deprecate', isLoggedIn, async (req, res) => {
   const { client, serialNo, quantity, date, particular, rate } = req.body;
   const newData = new Data({
     client,
@@ -367,7 +373,7 @@ app.get('/logout', (req, res) => {
 });
 
 // PDF Generation Route
-app.get('/generate-pdf-old/:id', isLoggedIn, async (req, res) => {
+app.get('/generate-pdf-old-deprecate/:id', isLoggedIn, async (req, res) => {
   const { id } = req.params;
   const data = await Data.findById(id);
 
@@ -408,7 +414,7 @@ app.get('/generate-pdf-old/:id', isLoggedIn, async (req, res) => {
   });
 });
 
-app.post('/generate-pdf', async (req, res) => {
+app.post('/generate-pdf-deprecate', async (req, res) => {
   try {
     const { items } = req.body;
 
@@ -524,7 +530,6 @@ app.post('/generate-pdf', async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to generate PDF' });
   }
 });
-
 app.get('/generate-challan-pdf/:challanId', async (req, res) => {
   try {
     const { challanId } = req.params;
@@ -535,7 +540,6 @@ app.get('/generate-challan-pdf/:challanId', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Challan not found' });
     }
 
-    // Fetch associated billing items
     const billingItems = await BillingItem.find({ challanId: challan.challanId });
     if (!billingItems || billingItems.length === 0) {
       return res.status(404).json({ success: false, message: 'No billing items found for this challan' });
@@ -585,39 +589,68 @@ app.get('/generate-challan-pdf/:challanId', async (req, res) => {
     // Table Header
     const tableTop = doc.y + 10;
     const startX = 50;
-    const columnWidths = [50, 250, 100, 100]; // Columns: Qty, Particular, Price, Remarks
-    const rowHeight = 20;
+    const columnWidths = [50, 200, 100, 200]; // Adjusted column widths
+    const baseRowHeight = 20;
+    const cellPadding = 5; // Padding inside cells
 
-    // Draw table header with borders
+    // Draw table header
     doc
       .fontSize(12)
       .fillColor('black')
       .font('Helvetica-Bold')
-      .text('Qty', startX, tableTop + 5, { width: columnWidths[0], align: 'center' })
-      .text('Particular', startX + columnWidths[0], tableTop + 5, { width: columnWidths[1], align: 'center' })
-      .text('Price', startX + columnWidths[0] + columnWidths[1], tableTop + 5, { width: columnWidths[2], align: 'center' })
-      .text('Remarks', startX + columnWidths[0] + columnWidths[1] + columnWidths[2], tableTop + 5, { width: columnWidths[3], align: 'center' });
+      .text('Qty', startX + cellPadding, tableTop + cellPadding, { width: columnWidths[0] - 2 * cellPadding, align: 'center' })
+      .text('Particular', startX + columnWidths[0] + cellPadding, tableTop + cellPadding, { width: columnWidths[1] - 2 * cellPadding, align: 'center' })
+      .text('Price', startX + columnWidths[0] + columnWidths[1] + cellPadding, tableTop + cellPadding, { width: columnWidths[2] - 2 * cellPadding, align: 'center' })
+      .text('Remarks', startX + columnWidths[0] + columnWidths[1] + columnWidths[2] + cellPadding, tableTop + cellPadding, { width: columnWidths[3] - 2 * cellPadding, align: 'center' });
 
     doc
-      .rect(startX, tableTop, columnWidths.reduce((a, b) => a + b, 0), rowHeight)
+      .rect(startX, tableTop, columnWidths.reduce((a, b) => a + b, 0), baseRowHeight)
       .stroke();
 
+    // Add vertical separators for header
+    columnWidths.reduce((x, width) => {
+      doc
+        .moveTo(startX + x, tableTop)
+        .lineTo(startX + x, tableTop + baseRowHeight)
+        .stroke();
+      return x + width;
+    }, 0);
+
     // Table Rows
-    let currentY = tableTop + rowHeight;
+    let currentY = tableTop + baseRowHeight;
+
     billingItems.forEach((item) => {
+      // Calculate dynamic row height
+      const qtyHeight = doc.heightOfString(item.quantity.toString(), { width: columnWidths[0] - 2 * cellPadding });
+      const particularHeight = doc.heightOfString(item.particular, { width: columnWidths[1] - 2 * cellPadding });
+      const priceHeight = doc.heightOfString(item.price.toFixed(2), { width: columnWidths[2] - 2 * cellPadding });
+      const remarksHeight = doc.heightOfString(item.remarks || '', { width: columnWidths[3] - 2 * cellPadding });
+
+      const rowHeight = Math.max(qtyHeight, particularHeight, priceHeight, remarksHeight, baseRowHeight);
+
+      // Render row content with padding
       doc
         .fontSize(12)
         .fillColor('black')
         .font('Helvetica')
-        .text(item.quantity.toString(), startX, currentY + 5, { width: columnWidths[0], align: 'center' })
-        .text(item.particular, startX + columnWidths[0], currentY + 5, { width: columnWidths[1], align: 'left' })
-        .text(item.price.toFixed(2), startX + columnWidths[0] + columnWidths[1], currentY + 5, { width: columnWidths[2], align: 'right' })
-        .text(item.remarks || '', startX + columnWidths[0] + columnWidths[1] + columnWidths[2], currentY + 5, { width: columnWidths[3], align: 'left' });
+        .text(item.quantity.toString(), startX + cellPadding, currentY + cellPadding, { width: columnWidths[0] - 2 * cellPadding, align: 'center' })
+        .text(item.particular, startX + columnWidths[0] + cellPadding, currentY + cellPadding, { width: columnWidths[1] - 2 * cellPadding, align: 'center' })
+        .text(item.price.toFixed(2), startX + columnWidths[0] + columnWidths[1] + cellPadding, currentY + cellPadding, { width: columnWidths[2] - 2 * cellPadding, align: 'center' })
+        .text(item.remarks || '', startX + columnWidths[0] + columnWidths[1] + columnWidths[2] + cellPadding, currentY + cellPadding, { width: columnWidths[3] - 2 * cellPadding, align: 'center' });
 
-      // Draw borders for each row
+      // Draw borders for the row
       doc
         .rect(startX, currentY, columnWidths.reduce((a, b) => a + b, 0), rowHeight)
         .stroke();
+
+      // Add vertical separators for the row
+      columnWidths.reduce((x, width) => {
+        doc
+          .moveTo(startX + x, currentY)
+          .lineTo(startX + x, currentY + rowHeight)
+          .stroke();
+        return x + width;
+      }, 0);
 
       currentY += rowHeight;
     });
@@ -648,6 +681,24 @@ app.get('/generate-challan-pdf/:challanId', async (req, res) => {
   }
 });
 
+const generateChallanId = async (username) => {
+  // Find the user by username
+  const user = await User.findOne({ username });
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // Increment the last challan number
+  user.lastChallanNumber += 1;
+
+  // Generate the challan ID
+  const challanId = `${user.billingCode}${user.lastChallanNumber}`;
+
+  // Save the updated user record
+  await user.save();
+
+  return challanId;
+};
 
 // Start Server
 app.listen(PORT, () => {

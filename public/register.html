@@ -43,10 +43,14 @@
             </div>
             <div class="mb-3">
                 <label for="role" class="form-label">Role</label>
-                <select class="form-select" id="role" name="role">
+                <select class="form-select" id="role" name="role" required>
                     <option value="user">User</option>
                     <option value="admin">Admin</option>
                 </select>
+            </div>
+            <div class="mb-3">
+                <label for="billingCode" class="form-label">Billing Code</label>
+                <input type="text" class="form-control" id="billingCode" name="billingCode" required>
             </div>
             <button type="submit" class="btn btn-primary w-100">Register</button>
         </form>

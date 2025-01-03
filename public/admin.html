@@ -24,16 +24,15 @@
         top: 10px;
         right: 10px;
         z-index: 1000;
-  }
-
-  @media (max-width: 768px) {
-    .top-right {
-      position: static;
-      display: block;
-      margin: 10px auto;
-      text-align: center;
     }
-  }
+    @media (max-width: 768px) {
+      .top-right {
+        position: static;
+        display: block;
+        margin: 10px auto;
+        text-align: center;
+      }
+    }
   </style>
 </head>
 <body>
@@ -41,32 +40,145 @@
   <h1>Admin Panel</h1>
 
   <div class="form-container">
-    <form onsubmit="addClient(event)">
+    <!-- Add Client Section -->
+    <form id="clientForm">
       <div class="mb-3">
         <label for="clientName" class="form-label">Client Name</label>
         <input type="text" class="form-control" id="clientName" name="name" placeholder="Enter client name" required />
       </div>
       <button type="submit" class="btn btn-primary w-100">Add Client</button>
     </form>
+
+    <hr>
+
+    <!-- Add Branch Section -->
+    <form id="branchForm">
+      <div class="mb-3">
+        <label for="clientSelect" class="form-label">Select Client</label>
+        <select id="clientSelect" class="form-select" required>
+          <option value="">Select a client</option>
+        </select>
+      </div>
+      <div id="branchesContainer">
+        <label for="branchName" class="form-label">Branch Name</label>
+        <div class="input-group mb-3">
+          <input type="text" class="form-control" name="branchName" placeholder="Enter branch name" required />
+          <button type="button" class="btn btn-danger" onclick="removeBranch(this)">Remove</button>
+        </div>
+      </div>
+      <button type="button" class="btn btn-secondary mb-3" onclick="addBranch()">Add Branch</button>
+      <button type="submit" class="btn btn-success w-100">Add Branches</button>
+    </form>
+
+    <hr>
+
+    <!-- Add Item Section -->
+    <form id="itemForm">
+      <div class="mb-3">
+        <label for="itemName" class="form-label">Item Name</label>
+        <input type="text" class="form-control" id="itemName" name="name" placeholder="Enter item name" required />
+      </div>
+      <button type="submit" class="btn btn-warning w-100">Add Item</button>
+    </form>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    async function fetchClients() {
+      const response = await fetch('/clients');
+      const clients = await response.json();
+      const clientSelect = document.getElementById('clientSelect');
+      clientSelect.innerHTML = '<option value="">Select a client</option>';
+      clients.forEach(client => {
+        const option = document.createElement('option');
+        option.value = client._id;
+        option.textContent = client.name;
+        clientSelect.appendChild(option);
+      });
+    }
+
     async function addClient(event) {
       event.preventDefault();
       const name = document.getElementById('clientName').value;
-      const response = await fetch('/add-client', {
+
+      const response = await fetch('/clients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
       });
+
       if (response.ok) {
         alert('Client added successfully');
         document.getElementById('clientName').value = '';
+        fetchClients();
       } else {
         alert('Failed to add client');
       }
     }
+
+    function addBranch() {
+      const branchesContainer = document.getElementById('branchesContainer');
+      const branchDiv = document.createElement('div');
+      branchDiv.classList.add('input-group', 'mb-3');
+      branchDiv.innerHTML = `
+        <input type="text" class="form-control" name="branchName" placeholder="Enter branch name" required />
+        <button type="button" class="btn btn-danger" onclick="removeBranch(this)">Remove</button>
+      `;
+      branchesContainer.appendChild(branchDiv);
+    }
+
+    function removeBranch(button) {
+      button.parentElement.remove();
+    }
+
+    async function addBranches(event) {
+      event.preventDefault();
+      const clientId = document.getElementById('clientSelect').value;
+      const branches = Array.from(document.getElementsByName('branchName')).map(input => input.value);
+
+      const response = await fetch('/branches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, branches }),
+      });
+
+      if (response.ok) {
+        alert('Branches added successfully');
+        document.getElementById('branchesContainer').innerHTML = `
+          <label for="branchName" class="form-label">Branch Name</label>
+          <div class="input-group mb-3">
+            <input type="text" class="form-control" name="branchName" placeholder="Enter branch name" required />
+            <button type="button" class="btn btn-danger" onclick="removeBranch(this)">Remove</button>
+          </div>
+        `;
+      } else {
+        alert('Failed to add branches');
+      }
+    }
+
+    async function addItem(event) {
+      event.preventDefault();
+      const name = document.getElementById('itemName').value;
+
+      const response = await fetch('/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+
+      if (response.ok) {
+        alert('Item added successfully');
+        document.getElementById('itemName').value = '';
+      } else {
+        alert('Failed to add item');
+      }
+    }
+
+    document.getElementById('clientForm').addEventListener('submit', addClient);
+    document.getElementById('branchForm').addEventListener('submit', addBranches);
+    document.getElementById('itemForm').addEventListener('submit', addItem);
+
+    fetchClients();
   </script>
 </body>
 </html>

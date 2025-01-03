@@ -54,10 +54,189 @@ const ClientSchema = new mongoose.Schema({
   name: { type: String, required: true },
 });
 
+const ItemSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+});
+
+const BranchSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', required: true },
+});
+
+const DeliveryChallanSchema = new mongoose.Schema({
+  challanId: { type: String, required: true, unique: true },
+  date: { type: Date, required: true },
+  clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', required: true },
+  clientName: { type: String, required: true }, // Add this
+  branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
+  branchName: { type: String, required: true }, // Add this
+});
+
+const BillingItemSchema = new mongoose.Schema({
+  challanId: { type: mongoose.Schema.Types.ObjectId, ref: 'DeliveryChallan', required: true },
+  particular: { type: String, required: true },
+  quantity: { type: Number, required: true },
+  price: { type: Number, required: true },
+  remarks: { type: String },
+});
+
+const DeliveryChallan = mongoose.model('DeliveryChallan', DeliveryChallanSchema);
+const BillingItem = mongoose.model('BillingItem', BillingItemSchema);
 const Client = mongoose.model('Client', ClientSchema);
+const Branch = mongoose.model('Branch', BranchSchema);
+
 const User = mongoose.model('User', UserSchema);
 const Data = mongoose.model('Data', DataSchema);
+const Item = mongoose.model('Item', ItemSchema);
 
+
+app.get('/branches/:clientId', async (req, res) => {
+  const branches = await Branch.find({ clientId: req.params.clientId });
+  res.json(branches);
+});
+
+// Get client by ID
+app.get('/clients/:clientId', async (req, res) => {
+  const { clientId } = req.params;
+  try {
+      const client = await Client.findById(clientId);
+      res.json(client);
+  } catch (error) {
+      res.status(500).json({ message: "Error fetching client", error });
+  }
+});
+
+// Get branch by ID
+app.get('/branchesById/:branchId', async (req, res) => {
+  const { branchId } = req.params;
+  try {
+      console.log(branchId);
+      const branch = await Branch.findById(branchId);
+      res.json(branch);
+  } catch (error) {
+      res.status(500).json({ message: "Error fetching branch", error });
+  }
+});
+
+// Get all challans
+app.get('/challans', async (req, res) => {
+  try {
+      const challans = await DeliveryChallan.find();
+      res.json(challans);
+  } catch (error) {
+      res.status(500).json({ message: "Error fetching challans", error });
+  }
+});
+
+// Get billing items for a particular challan
+app.get('/billing-items/:challanId', async (req, res) => {
+  const { challanId } = req.params;
+  try {
+      const billingItems = await BillingItem.find({ challanId });
+      res.json(billingItems);
+  } catch (error) {
+      res.status(500).json({ message: "Error fetching billing items", error });
+  }
+});
+
+app.post('/delivery-challan', async (req, res) => {
+  const { date, clientId, branchId, items } = req.body;
+
+  try {
+    // Fetch client and branch details
+    const client = await Client.findById(clientId);
+    const branch = await Branch.findById(branchId);
+
+    if (!client || !branch) {
+      return res.status(404).json({ success: false, message: 'Client or Branch not found' });
+    }
+
+    const challan = new DeliveryChallan({
+      challanId: new mongoose.Types.ObjectId().toString(),
+      date,
+      clientId,
+      clientName: client.name, // Store client name
+      branchId,
+      branchName: branch.name, // Store branch name
+    });
+
+    await challan.save();
+
+    const itemDocs = items.map(item => ({
+      challanId: challan.challanId, 
+      ...item,
+    }));
+
+    await BillingItem.insertMany(itemDocs);
+
+    res.json({ success: true, challanId: challan.challanId });
+  } catch (error) {
+    console.error('Error creating challan:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+
+app.post('/clients', async (req, res) => {
+  const { name } = req.body;
+
+  try {
+      const client = new Client({ name });
+      await client.save();
+      res.status(201).json(client);
+  } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to add client' });
+  }
+});
+
+// Get Clients
+app.get('/clients', async (req, res) => {
+  const clients = await Client.find();
+  res.json(clients);
+});
+
+// Get Items
+app.get('/items', async (req, res) => {
+  const items = await Item.find();
+  res.json(items);
+});
+
+// Add Branches
+app.post('/branches', async (req, res) => {
+  const { clientId, branches } = req.body;
+
+  if (!clientId || !branches || !Array.isArray(branches)) {
+      return res.status(400).json({ error: 'Invalid data' });
+  }
+
+  try {
+      const branchDocs = branches.map(branchName => ({ name: branchName, clientId }));
+      await Branch.insertMany(branchDocs);
+      res.status(201).json({ message: 'Branches added successfully' });
+  } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to add branches' });
+  }
+});
+
+
+app.post('/items', async (req, res) => {
+  const { name } = req.body;
+
+  if (!name) {
+      return res.status(400).json({ error: 'Item name is required' });
+  }
+
+  try {
+      const item = new Item({ name });
+      await item.save();
+      res.status(201).json(item);
+  } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to add item' });
+  }
+});
 
 // Route to serve Admin page
 app.get('/admin', isAdmin, (req, res) => {
@@ -139,6 +318,15 @@ app.post('/register', async (req, res) => {
 // Serve dashboard.html
 app.get('/dashboard', isLoggedIn, async (req, res) => {
   res.sendFile(__dirname + '/public/dashboard.html');
+});
+
+app.get('/addChallan', isLoggedIn, async (req, res) => {
+  res.sendFile(__dirname + '/public/addChallan.html');
+});
+
+
+app.get('/viewChallan', async (req, res) => {
+  res.sendFile(__dirname + '/public/viewChallan.html');
 });
 
 app.get('/dashboard-data', isLoggedIn, async (req, res) => {
@@ -336,6 +524,130 @@ app.post('/generate-pdf', async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to generate PDF' });
   }
 });
+
+app.get('/generate-challan-pdf/:challanId', async (req, res) => {
+  try {
+    const { challanId } = req.params;
+
+    // Fetch challan details
+    const challan = await DeliveryChallan.findOne({ challanId });
+    if (!challan) {
+      return res.status(404).json({ success: false, message: 'Challan not found' });
+    }
+
+    // Fetch associated billing items
+    const billingItems = await BillingItem.find({ challanId: challan.challanId });
+    if (!billingItems || billingItems.length === 0) {
+      return res.status(404).json({ success: false, message: 'No billing items found for this challan' });
+    }
+
+    // Generate PDF
+    const doc = new pdf();
+    const filePath = path.join(__dirname, `Challan_${challanId}.pdf`);
+    const writeStream = fs.createWriteStream(filePath);
+
+    doc.pipe(writeStream);
+
+    // Header Section
+    doc
+      .fontSize(22)
+      .fillColor('red')
+      .font('Helvetica-Bold')
+      .text('Orchid Computing India', { align: 'center' });
+    doc
+      .fontSize(10)
+      .fillColor('black')
+      .font('Helvetica')
+      .text('151, Bannu Enclave, Road No. 42, Pitampura, Delhi-34', { align: 'center' });
+    doc.text('Phone: 27020450, 9311135345', { align: 'center' });
+    doc.moveDown();
+
+    // Delivery Challan Title
+    doc
+      .fontSize(16)
+      .fillColor('black')
+      .font('Helvetica-Bold')
+      .text('Delivery Challan', { align: 'center', underline: true });
+    doc.moveDown();
+
+    // Challan and Client Details
+    doc
+      .fontSize(12)
+      .fillColor('black')
+      .font('Helvetica-Bold')
+      .text(`Challan ID: ${challan.challanId}`, { align: 'left' })
+      .text(`Date: ${new Date(challan.date).toLocaleDateString()}`, { align: 'right' })
+      .moveDown()
+      .text(`M/s: ${challan.clientName}`, { align: 'left' })
+      .text(`Branch: ${challan.branchName}`, { align: 'left' });
+    doc.moveDown();
+
+    // Table Header
+    const tableTop = doc.y + 10;
+    const startX = 50;
+    const columnWidths = [50, 250, 100, 100]; // Columns: Qty, Particular, Price, Remarks
+    const rowHeight = 20;
+
+    // Draw table header with borders
+    doc
+      .fontSize(12)
+      .fillColor('black')
+      .font('Helvetica-Bold')
+      .text('Qty', startX, tableTop + 5, { width: columnWidths[0], align: 'center' })
+      .text('Particular', startX + columnWidths[0], tableTop + 5, { width: columnWidths[1], align: 'center' })
+      .text('Price', startX + columnWidths[0] + columnWidths[1], tableTop + 5, { width: columnWidths[2], align: 'center' })
+      .text('Remarks', startX + columnWidths[0] + columnWidths[1] + columnWidths[2], tableTop + 5, { width: columnWidths[3], align: 'center' });
+
+    doc
+      .rect(startX, tableTop, columnWidths.reduce((a, b) => a + b, 0), rowHeight)
+      .stroke();
+
+    // Table Rows
+    let currentY = tableTop + rowHeight;
+    billingItems.forEach((item) => {
+      doc
+        .fontSize(12)
+        .fillColor('black')
+        .font('Helvetica')
+        .text(item.quantity.toString(), startX, currentY + 5, { width: columnWidths[0], align: 'center' })
+        .text(item.particular, startX + columnWidths[0], currentY + 5, { width: columnWidths[1], align: 'left' })
+        .text(item.price.toFixed(2), startX + columnWidths[0] + columnWidths[1], currentY + 5, { width: columnWidths[2], align: 'right' })
+        .text(item.remarks || '', startX + columnWidths[0] + columnWidths[1] + columnWidths[2], currentY + 5, { width: columnWidths[3], align: 'left' });
+
+      // Draw borders for each row
+      doc
+        .rect(startX, currentY, columnWidths.reduce((a, b) => a + b, 0), rowHeight)
+        .stroke();
+
+      currentY += rowHeight;
+    });
+
+    // Footer Section
+    doc.moveDown();
+    doc
+      .fontSize(10)
+      .fillColor('black')
+      .font('Helvetica')
+      .text('Customer Signature', startX, currentY + 20, { align: 'left' })
+      .text('For Orchid Computing India', startX + 400, currentY + 20, { align: 'right' });
+
+    doc.end();
+
+    // Send PDF as response
+    writeStream.on('finish', () => {
+      res.download(filePath, `Challan_${challanId}.pdf`, (err) => {
+        if (err) {
+          console.error('Error sending file:', err);
+        }
+        fs.unlinkSync(filePath); // Clean up the file after download
+      });
+    });
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    res.status(500).json({ success: false, message: 'Failed to generate PDF' });
+  }
+});
+
 
 // Start Server
 app.listen(PORT, () => {

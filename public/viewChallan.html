@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Challans</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container mt-5">
+        <h2 class="text-center mb-4">View Delivery Challans</h2>
+
+        <!-- Challans Table -->
+        <table id="challansTable" class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Challan ID</th>
+                    <th>Date</th>
+                    <th>Client Name</th>
+                    <th>Branch Name</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="challansList"></tbody>
+        </table>
+
+        <!-- Billing Items Container -->
+        <div id="billingItemsContainer" class="d-none">
+            <h3 class="mb-4">Billing Items for Challan <span id="challanId"></span></h3>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Particular</th>
+                        <th>Quantity</th>
+                        <th>Price</th>
+                        <th>Remarks</th>
+                    </tr>
+                </thead>
+                <tbody id="billingItemsTable"></tbody>
+            </table>
+            <button class="btn btn-secondary" id="backToChallansButton">Back to Challans</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const challansList = document.getElementById("challansList");
+        const billingItemsContainer = document.getElementById("billingItemsContainer");
+        const billingItemsTable = document.getElementById("billingItemsTable");
+        const challanIdSpan = document.getElementById("challanId");
+        const backToChallansButton = document.getElementById("backToChallansButton");
+
+        // Fetch all challans from the backend
+        const fetchChallans = async () => {
+            try {
+                const response = await fetch('/challans');
+                const challans = await response.json();
+                displayChallans(challans);
+            } catch (error) {
+                console.error("Error fetching challans:", error);
+            }
+        };
+
+        // Display the list of challans
+        const displayChallans = (challans) => {
+            challansList.innerHTML = ''; // Clear the list first
+            challans.forEach((challan) => {
+                const challanRow = `
+                    <tr>
+                        <td>${challan.challanId}</td>
+                        <td>${new Date(challan.date).toLocaleDateString('en-CA')}</td>
+                        <td>${challan.clientName}</td>
+                        <td>${challan.branchName}</td>
+                        <td>
+                            <button class="btn btn-info view-items-btn" data-challan-id="${challan.challanId}">View Items</button>
+                            <button class="btn btn-primary generate-pdf-btn" data-challan-id="${challan.challanId}">Generate Challan PDF</button>
+                        </td>
+                    </tr>
+                `;
+                challansList.insertAdjacentHTML("beforeend", challanRow);
+            });
+
+            // Event delegation: Add listener to the parent element
+            challansList.addEventListener('click', async (e) => {
+                if (e.target && e.target.classList.contains('view-items-btn')) {
+                    const challanId = e.target.getAttribute('data-challan-id');
+                    await fetchBillingItems(challanId);
+                }
+
+                if (e.target && e.target.classList.contains('generate-pdf-btn')) {
+                    const challanId = e.target.getAttribute('data-challan-id');
+                    await generateChallanPDF(challanId);
+                }
+            });
+        };
+
+        // Fetch billing items for a specific challan
+        const fetchBillingItems = async (challanId) => {
+            try {
+                const response = await fetch(`/billing-items/${challanId}`);
+                const billingItems = await response.json();
+                displayBillingItems(challanId, billingItems);
+            } catch (error) {
+                console.error("Error fetching billing items:", error);
+            }
+        };
+
+        // Display the billing items for a specific challan
+        const displayBillingItems = (challanId, billingItems) => {
+            challansList.classList.add('d-none');
+            billingItemsContainer.classList.remove('d-none');
+            challanIdSpan.textContent = challanId;
+
+            billingItemsTable.innerHTML = billingItems.map(item => `
+                <tr>
+                    <td>${item.particular}</td>
+                    <td>${item.quantity}</td>
+                    <td>${item.price}</td>
+                    <td>${item.remarks}</td>
+                </tr>
+            `).join('');
+        };
+
+        // Generate Challan PDF for a specific challan
+        const generateChallanPDF = async (challanId) => {
+            try {
+                const response = await fetch(`/generate-challan-pdf/${challanId}`, {
+                    method: 'GET',
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `Challan_${challanId}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    alert('Challan PDF downloaded');
+                } else {
+                    alert('Failed to generate Challan PDF');
+                }
+            } catch (error) {
+                console.error("Error generating Challan PDF:", error);
+                alert('Error generating Challan PDF');
+            }
+        };
+
+        // Go back to the challans list
+        backToChallansButton.addEventListener('click', () => {
+            billingItemsContainer.classList.add('d-none');
+            challansList.classList.remove('d-none');
+        });
+
+        // Initialize by fetching challans
+        fetchChallans();
+    </script>
+</body>
+
+</html>

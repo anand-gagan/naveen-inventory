@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Delivery Challan</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container mt-5">
+        <h2 class="text-center mb-4">Add Delivery Challan</h2>
+        <form id="challanForm">
+            <div class="card p-4">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="date" class="form-label">Date</label>
+                        <input type="text" id="date" class="form-control" readonly>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="client" class="form-label">Client</label>
+                        <select id="client" class="form-select" required>
+                            <option value="">Select Client</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="branch" class="form-label">Branch</label>
+                        <select id="branch" class="form-select" required disabled>
+                            <option value="">Select Branch</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <h5 class="mb-3">Items</h5>
+                    <div id="itemsContainer"></div>
+                    <div class="d-flex justify-content-end">
+                        <button type="button" class="btn btn-success" id="addItemButton">Add Item</button>
+                    </div>
+                </div>
+
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">Save Challan</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const clientDropdown = document.getElementById("client");
+        const branchDropdown = document.getElementById("branch");
+        const itemsContainer = document.getElementById("itemsContainer");
+        const addItemButton = document.getElementById("addItemButton");
+            // Get the current date in YYYY-MM-DD format
+        const currentDate = new Date().toISOString().split('T')[0];
+        
+        // Set the value of the date input field
+        document.getElementById('date').value = currentDate;
+
+        // Fetch clients from backend
+        const fetchClients = async () => {
+            try {
+                const response = await fetch('/clients');
+                const clients = await response.json();
+                populateDropdown(clientDropdown, clients);
+            } catch (error) {
+                console.error("Error fetching clients:", error);
+            }
+        };
+
+        // Fetch branches based on selected client
+        const fetchBranches = async (clientId) => {
+            try {
+                const response = await fetch(`/branches/${clientId}`);
+                const branches = await response.json();
+                populateDropdown(branchDropdown, branches);
+                branchDropdown.disabled = false;
+            } catch (error) {
+                console.error("Error fetching branches:", error);
+            }
+        };
+
+        // Fetch items for the dropdown
+        const fetchItems = async () => {
+            try {
+                const response = await fetch('/items');
+                const items = await response.json();
+                return items;
+            } catch (error) {
+                console.error("Error fetching items:", error);
+            }
+        };
+
+        // Populate dropdown with options
+        const populateDropdown = (dropdown, items) => {
+            dropdown.innerHTML = `<option value="">Select ${dropdown.id}</option>`;
+            items.forEach(item => {
+                const option = document.createElement("option");
+                option.value = item._id;
+                option.textContent = item.name;
+                dropdown.appendChild(option);
+            });
+        };
+
+        clientDropdown.addEventListener("change", (e) => {
+            const clientId = e.target.value;
+            if (clientId) {
+                fetchBranches(clientId);
+            } else {
+                branchDropdown.innerHTML = '<option value="">Select Branch</option>';
+                branchDropdown.disabled = true;
+            }
+        });
+
+        addItemButton.addEventListener("click", async () => {
+            const items = await fetchItems(); // Fetch items from the backend
+            const itemDropdown = items.map(item => `<option value="${item._id}">${item.name}</option>`).join('');
+            const itemRow = `
+                <div class="row mb-2">
+                    <div class="col-md-3">
+                        <select class="form-select" name="items[particular][]" required>
+                            <option value="">Select Particular</option>
+                            ${itemDropdown}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="number" class="form-control" name="items[quantity][]" placeholder="Quantity" required>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="number" class="form-control" name="items[price][]" placeholder="Price" required>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" name="items[remarks][]" placeholder="Remarks">
+                    </div>
+                    <div class="col-md-1 d-flex align-items-center">
+                        <button type="button" class="btn btn-danger btn-sm remove-item">X</button>
+                    </div>
+                </div>
+            `;
+            itemsContainer.insertAdjacentHTML("beforeend", itemRow);
+        });
+
+        itemsContainer.addEventListener("click", (e) => {
+            if (e.target.classList.contains("remove-item")) {
+                e.target.closest(".row").remove();
+            }
+        });
+        document.getElementById("challanForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const formData = new FormData(e.target);
+    const data = {
+        date: document.getElementById("date").value,
+        clientId: clientDropdown.value,
+        branchId: branchDropdown.value,
+        items: []
+    };
+
+    // Prepare the items data
+    const itemParticulars = formData.getAll('items[particular][]');
+    const itemQuantities = formData.getAll('items[quantity][]');
+    const itemPrices = formData.getAll('items[price][]');
+    const itemRemarks = formData.getAll('items[remarks][]');
+
+    itemParticulars.forEach((particular, index) => {
+        const selectedOption = Array.from(document.querySelectorAll(`select[name="items[particular][]"]`))[index]
+            .selectedOptions[0]; // Get the selected option element
+
+        data.items.push({
+            particular: selectedOption.textContent, // Use the displayed name
+            quantity: itemQuantities[index],
+            price: itemPrices[index],
+            remarks: itemRemarks[index]
+        });
+    });
+
+    try {
+        const response = await fetch('/delivery-challan', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            alert("Challan saved successfully!");
+            // Optionally, reset the form here
+            e.target.reset();
+            itemsContainer.innerHTML = '';
+        } else {
+            alert("Failed to save challan.");
+        }
+    } catch (error) {
+        console.error("Error saving challan:", error);
+    }
+});
+
+
+        // Initialize form
+        fetchClients();
+    </script>
+</body>
+
+</html>

@@ -6,7 +6,7 @@
     <title>Admin Panel</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body {
+        custom1 {
         padding: 2rem;
         background-color: #f8f9fa;
         }
@@ -42,8 +42,33 @@
     </style>
     </head>
 <body>
-  <a href="/home" class="btn btn-secondary top-right">Home</a>
-  <a href="/register" class="btn btn-secondary top-right">Register new User</a>
+    <!-- Common Header -->
+    <header class="navbar navbar-expand-lg navbar-dark bg-dark py-3 shadow">
+        <div class="container-fluid">
+            <!-- Company Name -->
+            <a href="#" class="navbar-brand fs-3 fw-bold text-light" style="font-family: 'Brush Script MT', cursive;">
+                Naveen's Inventory
+            </a>
+
+            <!-- Toggler for Mobile View -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <!-- Navigation Links -->
+            <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a href="/home" class="btn btn-primary mx-2">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/register" class="btn btn-success mx-2">Register</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </header>
+    <custom1>
   <h1>Admin Panel</h1>
 
   <div class="form-container">
@@ -88,6 +113,7 @@
       <button type="submit" class="btn btn-warning w-100">Add Item</button>
     </form>
   </div>
+  </custom1>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>

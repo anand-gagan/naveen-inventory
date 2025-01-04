@@ -5,10 +5,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>View Challans</title>
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- DataTables CSS -->
+    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
 </head>
 
 <body>
+    <!-- Common Header -->
+    <header class="navbar navbar-expand-lg navbar-dark bg-dark py-3 shadow">
+        <div class="container-fluid">
+            <!-- Company Name -->
+            <a href="#" class="navbar-brand fs-3 fw-bold text-light" style="font-family: 'Brush Script MT', cursive;">
+                Naveen's Inventory
+            </a>
+
+            <!-- Toggler for Mobile View -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <!-- Navigation Links -->
+            <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a href="/home" class="btn btn-primary">Home</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </header>
+
     <div class="container mt-5">
         <h2 class="text-center mb-4">View Delivery Challans</h2>
 
@@ -25,139 +52,142 @@
             </thead>
             <tbody id="challansList"></tbody>
         </table>
+    </div>
 
-        <!-- Billing Items Container -->
-        <div id="billingItemsContainer" class="d-none">
-            <h3 class="mb-4">Billing Items for Challan <span id="challanId"></span></h3>
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Particular</th>
-                        <th>Quantity</th>
-                        <th>Price</th>
-                        <th>Remarks</th>
-                    </tr>
-                </thead>
-                <tbody id="billingItemsTable"></tbody>
-            </table>
-            <button class="btn btn-secondary" id="backToChallansButton">Back to Challans</button>
+    <!-- Modal for Billing Items -->
+    <div class="modal fade" id="billingItemsModal" tabindex="-1" aria-labelledby="billingItemsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="billingItemsModalLabel">Billing Items for Challan <span id="modalChallanId"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Particular</th>
+                                <th>Quantity</th>
+                                <th>Price</th>
+                                <th>Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalBillingItemsTable"></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
     <script>
-        const challansList = document.getElementById("challansList");
-        const billingItemsContainer = document.getElementById("billingItemsContainer");
-        const billingItemsTable = document.getElementById("billingItemsTable");
-        const challanIdSpan = document.getElementById("challanId");
-        const backToChallansButton = document.getElementById("backToChallansButton");
+        $(document).ready(function () {
+            const challansList = $("#challansList");
+            const modalBillingItemsTable = $("#modalBillingItemsTable");
+            const modalChallanId = $("#modalChallanId");
 
-        // Fetch all challans from the backend
-        const fetchChallans = async () => {
-            try {
-                const response = await fetch('/challans');
-                const challans = await response.json();
-                displayChallans(challans);
-            } catch (error) {
-                console.error("Error fetching challans:", error);
-            }
-        };
+            // Initialize DataTable
+            const table = $("#challansTable").DataTable();
 
-        // Display the list of challans
-        const displayChallans = (challans) => {
-            challansList.innerHTML = ''; // Clear the list first
-            challans.forEach((challan) => {
-                const challanRow = `
-                    <tr>
-                        <td>${challan.challanId}</td>
-                        <td>${new Date(challan.date).toLocaleDateString('en-CA')}</td>
-                        <td>${challan.clientName}</td>
-                        <td>${challan.branchName}</td>
-                        <td>
-                            <button class="btn btn-info view-items-btn" data-challan-id="${challan.challanId}">View Items</button>
-                            <button class="btn btn-primary generate-pdf-btn" data-challan-id="${challan.challanId}">Generate Challan PDF</button>
-                        </td>
-                    </tr>
-                `;
-                challansList.insertAdjacentHTML("beforeend", challanRow);
-            });
-
-            // Event delegation: Add listener to the parent element
-            challansList.addEventListener('click', async (e) => {
-                if (e.target && e.target.classList.contains('view-items-btn')) {
-                    const challanId = e.target.getAttribute('data-challan-id');
-                    await fetchBillingItems(challanId);
+            // Fetch all challans from the backend
+            const fetchChallans = async () => {
+                try {
+                    const response = await fetch('/challans');
+                    const challans = await response.json();
+                    displayChallans(challans);
+                } catch (error) {
+                    console.error("Error fetching challans:", error);
                 }
+            };
 
-                if (e.target && e.target.classList.contains('generate-pdf-btn')) {
-                    const challanId = e.target.getAttribute('data-challan-id');
-                    await generateChallanPDF(challanId);
-                }
-            });
-        };
-
-        // Fetch billing items for a specific challan
-        const fetchBillingItems = async (challanId) => {
-            try {
-                const response = await fetch(`/billing-items/${challanId}`);
-                const billingItems = await response.json();
-                displayBillingItems(challanId, billingItems);
-            } catch (error) {
-                console.error("Error fetching billing items:", error);
-            }
-        };
-
-        // Display the billing items for a specific challan
-        const displayBillingItems = (challanId, billingItems) => {
-            challansList.classList.add('d-none');
-            billingItemsContainer.classList.remove('d-none');
-            challanIdSpan.textContent = challanId;
-
-            billingItemsTable.innerHTML = billingItems.map(item => `
-                <tr>
-                    <td>${item.particular}</td>
-                    <td>${item.quantity}</td>
-                    <td>${item.price}</td>
-                    <td>${item.remarks}</td>
-                </tr>
-            `).join('');
-        };
-
-        // Generate Challan PDF for a specific challan
-        const generateChallanPDF = async (challanId) => {
-            try {
-                const response = await fetch(`/generate-challan-pdf/${challanId}`, {
-                    method: 'GET',
+            // Display the list of challans
+            const displayChallans = (challans) => {
+                table.clear(); // Clear existing rows
+                challans.forEach((challan) => {
+                    table.row.add([
+                        challan.challanId,
+                        new Date(challan.date).toLocaleDateString('en-CA'),
+                        challan.clientName,
+                        challan.branchName,
+                        `
+                        <button class="btn btn-info view-items-btn" data-challan-id="${challan.challanId}">View Items</button>
+                        <button class="btn btn-primary generate-pdf-btn" data-challan-id="${challan.challanId}">Generate Challan PDF</button>
+                        `
+                    ]).draw();
                 });
 
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = url;
-                    a.download = `Challan_${challanId}.pdf`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    alert('Challan PDF downloaded');
-                } else {
-                    alert('Failed to generate Challan PDF');
+                // Add event listeners
+                $(".view-items-btn").on("click", async function () {
+                    const challanId = $(this).data("challan-id");
+                    await fetchBillingItems(challanId);
+                });
+
+                $(".generate-pdf-btn").on("click", async function () {
+                    const challanId = $(this).data("challan-id");
+                    await generateChallanPDF(challanId);
+                });
+            };
+
+            // Fetch billing items for a specific challan
+            const fetchBillingItems = async (challanId) => {
+                try {
+                    const response = await fetch(`/billing-items/${challanId}`);
+                    const billingItems = await response.json();
+                    displayBillingItems(challanId, billingItems);
+                } catch (error) {
+                    console.error("Error fetching billing items:", error);
                 }
-            } catch (error) {
-                console.error("Error generating Challan PDF:", error);
-                alert('Error generating Challan PDF');
-            }
-        };
+            };
 
-        // Go back to the challans list
-        backToChallansButton.addEventListener('click', () => {
-            billingItemsContainer.classList.add('d-none');
-            challansList.classList.remove('d-none');
+            // Display billing items in the modal
+            const displayBillingItems = (challanId, billingItems) => {
+                modalChallanId.text(challanId);
+                modalBillingItemsTable.html(billingItems.map(item => `
+                    <tr>
+                        <td>${item.particular}</td>
+                        <td>${item.quantity}</td>
+                        <td>${item.price}</td>
+                        <td>${item.remarks}</td>
+                    </tr>
+                `).join(''));
+                $("#billingItemsModal").modal("show");
+            };
+
+            // Generate Challan PDF for a specific challan
+            const generateChallanPDF = async (challanId) => {
+                try {
+                    const response = await fetch(`/generate-challan-pdf/${challanId}`, { method: 'GET' });
+
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = url;
+                        a.download = `Challan_${challanId}.pdf`;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        alert('Challan PDF downloaded');
+                    } else {
+                        alert('Failed to generate Challan PDF');
+                    }
+                } catch (error) {
+                    console.error("Error generating Challan PDF:", error);
+                    alert('Error generating Challan PDF');
+                }
+            };
+
+            // Initialize by fetching challans
+            fetchChallans();
         });
-
-        // Initialize by fetching challans
-        fetchChallans();
     </script>
 </body>
 

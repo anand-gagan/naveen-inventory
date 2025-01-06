@@ -94,7 +94,9 @@
     const modalChallanId = $("#modalChallanId");
 
     // Initialize DataTable
-    const table = $("#challansTable").DataTable();
+    const table = $("#challansTable").DataTable({
+        order: [] // Disable default sorting
+    });
 
     // Fetch all challans from the backend
     const fetchChallans = async () => {
@@ -113,7 +115,7 @@
         challans.forEach((challan) => {
             table.row.add([
                 challan.challanId,
-                new Date(challan.date).toLocaleDateString('en-CA'),
+                new Date(challan.date).toLocaleDateString('en-GB').replace(/\//g, '-'),
                 challan.clientName,
                 challan.branchName,
                 `

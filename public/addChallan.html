@@ -77,8 +77,8 @@
         const branchDropdown = document.getElementById("branch");
         const itemsContainer = document.getElementById("itemsContainer");
         const addItemButton = document.getElementById("addItemButton");
-            // Get the current date in YYYY-MM-DD format
-        const currentDate = new Date().toISOString().split('T')[0];
+
+        const currentDate = new Date().toLocaleDateString('en-GB').split('/').join('-');
         
         // Set the value of the date input field
         document.getElementById('date').value = currentDate;
@@ -153,7 +153,7 @@
                         <input type="number" class="form-control" name="items[quantity][]" placeholder="Quantity" required>
                     </div>
                     <div class="col-md-3">
-                        <input type="number" class="form-control" name="items[price][]" placeholder="Price" required>
+                        <input type="text" class="form-control" name="items[price][]" placeholder="Price" required>
                     </div>
                     <div class="col-md-3">
                         <input type="text" class="form-control" name="items[remarks][]" placeholder="Remarks">
@@ -176,7 +176,7 @@
 
         const formData = new FormData(e.target);
         const data = {
-            date: document.getElementById("date").value,
+            date: new Date().toISOString().split('T')[0],
             clientId: clientDropdown.value,
             branchId: branchDropdown.value,
             items: []
@@ -223,7 +223,7 @@
             console.error("Error saving challan:", error);
         }
     });
-    
+
     fetchClients();
     </script>
 </body>

@@ -60,16 +60,16 @@ const DeliveryChallanSchema = new mongoose.Schema({
   challanId: { type: String, required: true, unique: true },
   date: { type: Date, required: true },
   clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', required: true },
-  clientName: { type: String, required: true }, // Add this
+  clientName: { type: String, required: true },
   branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
-  branchName: { type: String, required: true }, // Add this
+  branchName: { type: String, required: true },
 });
 
 const BillingItemSchema = new mongoose.Schema({
   challanId: { type: String, ref: 'DeliveryChallan', required: true },
   particular: { type: String, required: true },
   quantity: { type: Number, required: true },
-  price: { type: Number, required: true },
+  price: { type: String, required: true },
   remarks: { type: String },
 });
 
@@ -83,7 +83,7 @@ const Item = mongoose.model('Item', ItemSchema);
 
 
 app.get('/branches/:clientId', async (req, res) => {
-  const branches = await Branch.find({ clientId: req.params.clientId });
+  const branches = await Branch.find({ clientId: req.params.clientId }).sort({ name: 1 });;
   res.json(branches);
 });
 
@@ -120,10 +120,10 @@ app.get('/challans', async (req, res) => {
 
     let challans;
     if (user.role === 'admin') {
-      challans = await DeliveryChallan.find();
+      challans = await DeliveryChallan.find().sort({ challanId: -1 });
     } else {
       const billingCode = user.billingCode;
-      challans = await DeliveryChallan.find({ challanId: { $regex: `^${billingCode}` } });
+      challans = await DeliveryChallan.find({ challanId: { $regex: `^${billingCode}` } }).sort({ date: -1 });
     }
 
     res.json(challans);
@@ -136,7 +136,7 @@ app.get('/challans', async (req, res) => {
 app.get('/billing-items/:challanId', async (req, res) => {
   const { challanId } = req.params;
   try {
-      const billingItems = await BillingItem.find({ challanId });
+      const billingItems = await BillingItem.find({ challanId }).sort({ particular: 1 });;
       res.json(billingItems);
   } catch (error) {
       res.status(500).json({ message: "Error fetching billing items", error });
@@ -196,13 +196,13 @@ app.post('/clients', async (req, res) => {
 
 // Get Clients
 app.get('/clients', async (req, res) => {
-  const clients = await Client.find();
+  const clients = await Client.find().sort({ name: 1 });
   res.json(clients);
 });
 
 // Get Items
 app.get('/items', async (req, res) => {
-  const items = await Item.find();
+  const items = await Item.find().sort({ name: 1 });
   res.json(items);
 });
 
@@ -263,7 +263,7 @@ app.post('/add-client', isAdmin, async (req, res) => {
 // Route to fetch clients
 app.get('/clients', isLoggedIn, async (req, res) => {
   try {
-    const clients = await Client.find({}, 'name');
+    const clients = await Client.find({}, 'name').sort({ name: 1 });
     res.status(200).json({ success: true, clients });
   } catch (error) {
     console.error('Error fetching clients:', error);
@@ -388,7 +388,7 @@ app.get('/generate-challan-pdf/:challanId', async (req, res) => {
       .fillColor('black')
       .font('Helvetica-Bold')
       .text(`Challan ID: ${challan.challanId}`, { align: 'left' })
-      .text(`Date: ${new Date(challan.date).toLocaleDateString()}`, { align: 'right' })
+      .text(`Date: ${formatDate(challan.date)}`, { align: 'right' })
       .moveDown()
       .text(`M/s: ${challan.clientName}`, { align: 'left' })
       .text(`Branch: ${challan.branchName}`, { align: 'left' });
@@ -431,7 +431,7 @@ app.get('/generate-challan-pdf/:challanId', async (req, res) => {
       // Calculate dynamic row height
       const qtyHeight = doc.heightOfString(item.quantity.toString(), { width: columnWidths[0] - 2 * cellPadding });
       const particularHeight = doc.heightOfString(item.particular, { width: columnWidths[1] - 2 * cellPadding });
-      const priceHeight = doc.heightOfString(item.price.toFixed(2), { width: columnWidths[2] - 2 * cellPadding });
+      const priceHeight = doc.heightOfString(item.price, { width: columnWidths[2] - 2 * cellPadding });
       const remarksHeight = doc.heightOfString(item.remarks || '', { width: columnWidths[3] - 2 * cellPadding });
 
       const rowHeight = Math.max(qtyHeight, particularHeight, priceHeight, remarksHeight, baseRowHeight);
@@ -443,7 +443,7 @@ app.get('/generate-challan-pdf/:challanId', async (req, res) => {
         .font('Helvetica')
         .text(item.quantity.toString(), startX + cellPadding, currentY + cellPadding, { width: columnWidths[0] - 2 * cellPadding, align: 'center' })
         .text(item.particular, startX + columnWidths[0] + cellPadding, currentY + cellPadding, { width: columnWidths[1] - 2 * cellPadding, align: 'center' })
-        .text(item.price.toFixed(2), startX + columnWidths[0] + columnWidths[1] + cellPadding, currentY + cellPadding, { width: columnWidths[2] - 2 * cellPadding, align: 'center' })
+        .text(item.price, startX + columnWidths[0] + columnWidths[1] + cellPadding, currentY + cellPadding, { width: columnWidths[2] - 2 * cellPadding, align: 'center' })
         .text(item.remarks || '', startX + columnWidths[0] + columnWidths[1] + columnWidths[2] + cellPadding, currentY + cellPadding, { width: columnWidths[3] - 2 * cellPadding, align: 'center' });
 
       // Draw borders for the row
@@ -501,6 +501,15 @@ const generateChallanId = async (username) => {
 
   return challanId;
 };
+
+// Helper function to format the date
+function formatDate(date) {
+  const d = new Date(date);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+}
 
 app.use((req, res) => {
   res.redirect('/home'); // Redirect to the home page

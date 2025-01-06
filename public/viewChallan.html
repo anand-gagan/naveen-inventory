@@ -89,105 +89,106 @@
 
     <script>
         $(document).ready(function () {
-            const challansList = $("#challansList");
-            const modalBillingItemsTable = $("#modalBillingItemsTable");
-            const modalChallanId = $("#modalChallanId");
+    const challansList = $("#challansList");
+    const modalBillingItemsTable = $("#modalBillingItemsTable");
+    const modalChallanId = $("#modalChallanId");
 
-            // Initialize DataTable
-            const table = $("#challansTable").DataTable();
+    // Initialize DataTable
+    const table = $("#challansTable").DataTable();
 
-            // Fetch all challans from the backend
-            const fetchChallans = async () => {
-                try {
-                    const response = await fetch('/challans');
-                    const challans = await response.json();
-                    displayChallans(challans);
-                } catch (error) {
-                    console.error("Error fetching challans:", error);
-                }
-            };
+    // Fetch all challans from the backend
+    const fetchChallans = async () => {
+        try {
+            const response = await fetch('/challans');
+            const challans = await response.json();
+            displayChallans(challans);
+        } catch (error) {
+            console.error("Error fetching challans:", error);
+        }
+    };
 
-            // Display the list of challans
-            const displayChallans = (challans) => {
-                table.clear(); // Clear existing rows
-                challans.forEach((challan) => {
-                    table.row.add([
-                        challan.challanId,
-                        new Date(challan.date).toLocaleDateString('en-CA'),
-                        challan.clientName,
-                        challan.branchName,
-                        `
-                        <button class="btn btn-info view-items-btn" data-challan-id="${challan.challanId}">View Items</button>
-                        <button class="btn btn-primary generate-pdf-btn" data-challan-id="${challan.challanId}">Generate Challan PDF</button>
-                        `
-                    ]).draw();
-                });
-
-                // Add event listeners
-                $(".view-items-btn").on("click", async function () {
-                    const challanId = $(this).data("challan-id");
-                    await fetchBillingItems(challanId);
-                });
-
-                $(".generate-pdf-btn").on("click", async function () {
-                    const challanId = $(this).data("challan-id");
-                    await generateChallanPDF(challanId);
-                });
-            };
-
-            // Fetch billing items for a specific challan
-            const fetchBillingItems = async (challanId) => {
-                try {
-                    const response = await fetch(`/billing-items/${challanId}`);
-                    const billingItems = await response.json();
-                    displayBillingItems(challanId, billingItems);
-                } catch (error) {
-                    console.error("Error fetching billing items:", error);
-                }
-            };
-
-            // Display billing items in the modal
-            const displayBillingItems = (challanId, billingItems) => {
-                modalChallanId.text(challanId);
-                modalBillingItemsTable.html(billingItems.map(item => `
-                    <tr>
-                        <td>${item.particular}</td>
-                        <td>${item.quantity}</td>
-                        <td>${item.price}</td>
-                        <td>${item.remarks}</td>
-                    </tr>
-                `).join(''));
-                $("#billingItemsModal").modal("show");
-            };
-
-            // Generate Challan PDF for a specific challan
-            const generateChallanPDF = async (challanId) => {
-                try {
-                    const response = await fetch(`/generate-challan-pdf/${challanId}`, { method: 'GET' });
-
-                    if (response.ok) {
-                        const blob = await response.blob();
-                        const url = window.URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.style.display = 'none';
-                        a.href = url;
-                        a.download = `Challan_${challanId}.pdf`;
-                        document.body.appendChild(a);
-                        a.click();
-                        window.URL.revokeObjectURL(url);
-                        alert('Challan PDF downloaded');
-                    } else {
-                        alert('Failed to generate Challan PDF');
-                    }
-                } catch (error) {
-                    console.error("Error generating Challan PDF:", error);
-                    alert('Error generating Challan PDF');
-                }
-            };
-
-            // Initialize by fetching challans
-            fetchChallans();
+    // Display the list of challans
+    const displayChallans = (challans) => {
+        table.clear(); // Clear existing rows
+        challans.forEach((challan) => {
+            table.row.add([
+                challan.challanId,
+                new Date(challan.date).toLocaleDateString('en-CA'),
+                challan.clientName,
+                challan.branchName,
+                `
+                <button class="btn btn-info view-items-btn" data-challan-id="${challan.challanId}">View Items</button>
+                <button class="btn btn-primary generate-pdf-btn" data-challan-id="${challan.challanId}">Generate Challan PDF</button>
+                `
+            ]).draw();
         });
+    };
+
+    // Delegate events for buttons in the table
+    $("#challansTable tbody").on("click", ".view-items-btn", async function () {
+        const challanId = $(this).data("challan-id");
+        await fetchBillingItems(challanId);
+    });
+
+    $("#challansTable tbody").on("click", ".generate-pdf-btn", async function () {
+        const challanId = $(this).data("challan-id");
+        await generateChallanPDF(challanId);
+    });
+
+    // Fetch billing items for a specific challan
+    const fetchBillingItems = async (challanId) => {
+        try {
+            const response = await fetch(`/billing-items/${challanId}`);
+            const billingItems = await response.json();
+            displayBillingItems(challanId, billingItems);
+        } catch (error) {
+            console.error("Error fetching billing items:", error);
+        }
+    };
+
+    // Display billing items in the modal
+    const displayBillingItems = (challanId, billingItems) => {
+        modalChallanId.text(challanId);
+        modalBillingItemsTable.html(billingItems.map(item => `
+            <tr>
+                <td>${item.particular}</td>
+                <td>${item.quantity}</td>
+                <td>${item.price}</td>
+                <td>${item.remarks}</td>
+            </tr>
+        `).join(''));
+        $("#billingItemsModal").modal("show");
+    };
+
+    // Generate Challan PDF for a specific challan
+    const generateChallanPDF = async (challanId) => {
+        try {
+            const response = await fetch(`/generate-challan-pdf/${challanId}`, { method: 'GET' });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `Challan_${challanId}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                alert('Challan PDF downloaded');
+            } else {
+                alert('Failed to generate Challan PDF');
+            }
+        } catch (error) {
+            console.error("Error generating Challan PDF:", error);
+            alert('Error generating Challan PDF');
+        }
+    };
+
+    // Initialize by fetching challans
+    fetchChallans();
+});
+
     </script>
 </body>
 

@@ -110,13 +110,25 @@ app.get('/branchesById/:branchId', async (req, res) => {
   }
 });
 
-// Get all challans
 app.get('/challans', async (req, res) => {
   try {
-      const challans = await DeliveryChallan.find();
-      res.json(challans);
+    if (!req.session.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const user = req.session.user;
+
+    let challans;
+    if (user.role === 'admin') {
+      challans = await DeliveryChallan.find();
+    } else {
+      const billingCode = user.billingCode;
+      challans = await DeliveryChallan.find({ challanId: { $regex: `^${billingCode}` } });
+    }
+
+    res.json(challans);
   } catch (error) {
-      res.status(500).json({ message: "Error fetching challans", error });
+    res.status(500).json({ message: "Error fetching challans", error });
   }
 });
 

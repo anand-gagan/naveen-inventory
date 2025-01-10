@@ -59,10 +59,13 @@
             <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
                 <ul class="navbar-nav">
                     <li class="nav-item">
-                        <a href="/home" class="btn btn-primary mx-2">Home</a>
+                        <a href="/home" class="btn btn-primary me-2">Home</a>
                     </li>
                     <li class="nav-item">
-                        <a href="/register" class="btn btn-success mx-2">Register</a>
+                        <a href="/register" class="btn btn-success me-2">Register</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/logout" class="btn btn-danger me-2">Logout</a>
                     </li>
                 </ul>
             </div>
@@ -112,6 +115,23 @@
       </div>
       <button type="submit" class="btn btn-warning w-100">Add Item</button>
     </form>
+
+    <hr>
+
+    <!-- Set User Password Section -->
+    <form id="setPasswordForm">
+        <div class="mb-3">
+            <label for="userSelect" class="form-label">Select User</label>
+            <select id="userSelect" class="form-select" required>
+                <option value="">Select a user</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="newUserPassword" class="form-label">New Password</label>
+            <input type="password" class="form-control" id="newUserPassword" placeholder="Enter new password" required />
+        </div>
+        <button type="submit" class="btn btn-danger w-100">Set Password</button>
+    </form>
   </div>
   </custom1>
 
@@ -128,6 +148,19 @@
         option.textContent = client.name;
         clientSelect.appendChild(option);
       });
+    }
+
+    async function fetchUsers() {
+        const response = await fetch('/users');
+        const users = await response.json();
+        const userSelect = document.getElementById('userSelect');
+        userSelect.innerHTML = '<option value="">Select a user</option>';
+        users.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user._id;
+            option.textContent = user.username;
+            userSelect.appendChild(option);
+        });
     }
 
     async function addClient(event) {
@@ -207,11 +240,32 @@
       }
     }
 
+    async function setPassword(event) {
+        event.preventDefault();
+        const userId = document.getElementById('userSelect').value;
+        const newPassword = document.getElementById('newUserPassword').value;
+
+        const response = await fetch('/set-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, newPassword }),
+        });
+
+        if (response.ok) {
+            alert('Password updated successfully');
+            document.getElementById('setPasswordForm').reset();
+        } else {
+            alert('Failed to update password');
+        }
+    }
+
     document.getElementById('clientForm').addEventListener('submit', addClient);
     document.getElementById('branchForm').addEventListener('submit', addBranches);
     document.getElementById('itemForm').addEventListener('submit', addItem);
+    document.getElementById('setPasswordForm').addEventListener('submit', setPassword);
 
     fetchClients();
+    fetchUsers();
   </script>
 </body>
 </html>

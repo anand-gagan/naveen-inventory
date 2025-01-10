@@ -296,6 +296,72 @@ app.get('/login', (req, res) => {
   res.sendFile(__dirname + '/public/login.html');
 });
 
+app.get('/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.redirect('/login');
+  });
+});
+
+app.post('/change-password', isLoggedIn, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  try {
+    const user = await User.findOne({ username: req.session.user.username });
+    console.log('found user', user);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Check if current password matches
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    console.log('found user', isMatch);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update the user's password
+    user.password = hashedPassword;
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({ success: false, message: 'Failed to change password' });
+  }
+});
+
+app.post('/set-password',  isAdmin, async (req, res) => {
+  const { userId, newPassword } = req.body;
+
+  if (!userId || !newPassword) {
+    return res.status(400).send('User ID and new password are required');
+  }
+
+  try {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await User.findByIdAndUpdate(userId, { password: hashedPassword });
+    res.status(200).send('Password updated successfully');
+  } catch (error) {
+    console.error('Error updating password:', error);
+    res.status(500).send('Failed to update password');
+  }
+});
+
+app.get('/users',  isAdmin, async (req, res) => {
+  try {
+    const users = await User.find();
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).send('Failed to fetch users');
+  }
+});
+
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
   const user = await User.findOne({ username });
